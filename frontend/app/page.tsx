@@ -287,8 +287,10 @@ export default function Home() {
       });
 
       source.onerror = () => {
-        // Keep existing state; reconnecting can be handled with a refresh/new run.
-        console.error('SSE stream disconnected');
+        // EventSource can fire onerror for transient reconnects or intentional closes.
+        // Avoid surfacing this as a hard console error in Next.js dev overlay.
+        if (source.readyState === EventSource.CLOSED) return;
+        console.warn('SSE stream disconnected, retrying...');
       };
     },
     [closeStream],

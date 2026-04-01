@@ -29,7 +29,7 @@ interface TopGraphStripProps {
 }
 
 const POPOUT_WIDTH = 320;
-const POPOUT_HEIGHT = 220;
+const POPOUT_HEIGHT = 500;
 const POPOUT_GAP = 16;
 const POPOUT_COLUMNS = 2;
 const MIN_X_CLEAR_SETTINGS = 340;
@@ -351,16 +351,18 @@ export default function TopGraphStrip({
         return (
           <Card
             key={nodeId}
+            size="sm"
             className="absolute bg-background border border-border shadow-xl z-30"
             style={{
               left: popout.x,
               top: popout.y,
               width: POPOUT_WIDTH,
+              height: POPOUT_HEIGHT,
               userSelect: draggingId === nodeId ? 'none' : 'auto',
             }}
           >
             <CardHeader
-              className="cursor-move py-3 flex-row items-center justify-between space-y-0"
+              className="cursor-move py-1 flex-row items-center justify-between space-y-0 relative"
               onMouseDown={(event) => handleMouseDown(event, nodeId)}
             >
               <div className="flex items-center gap-2">
@@ -374,18 +376,19 @@ export default function TopGraphStrip({
               <Button
                 variant="ghost"
                 size="icon-xs"
+                className="absolute top-0 right-0 h-6 w-6"
                 onClick={(event) => {
                   event.stopPropagation();
                   closePopout(nodeId);
                 }}
                 aria-label="Close popup"
               >
-                <X className="size-4" />
+                <X className="size-3.5" />
               </Button>
             </CardHeader>
             <Separator />
-            <CardContent className="py-3">
-              <ScrollArea className="max-h-[140px]">
+            <CardContent className="py-2 flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
                 <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
                   {nodeData.content}
                 </p>

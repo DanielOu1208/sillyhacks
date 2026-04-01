@@ -75,7 +75,7 @@ export default function ReasoningLanes({
   }, [messages]);
 
   return (
-    <Card className="bg-popover/95 backdrop-blur-sm shadow-xl border-0 py-0 ring-0">
+    <Card className="border-0 py-0 ring-0 bg-transparent shadow-none">
       <CardContent className="p-0">
         <div className="grid grid-cols-1 gap-6 py-2 md:grid-cols-2 xl:grid-cols-4">
           {LANE_CONFIGS.map((lane) => {
