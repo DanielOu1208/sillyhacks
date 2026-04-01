@@ -109,6 +109,35 @@ export const mockReasoningTexts: Record<string, string> = {
   'debater-c': 'Synthesizing perspectives. Both arguments have merit, but the synthesis reveals a third path forward.',
 };
 
+// Mock conversation content for each graph node
+export const nodeConversations: Record<string, { title: string; lane: string; content: string }> = {
+  'node-1': {
+    title: 'Initial Question',
+    lane: 'Orchestrator',
+    content: 'Let us begin by posing the central question: What principles should guide decision-making in complex scenarios? This debate will explore multiple perspectives to arrive at a balanced synthesis.',
+  },
+  'node-2': {
+    title: 'Argument A',
+    lane: 'Debater A',
+    content: 'From a logical consistency standpoint, I argue that rational analysis and systematic evaluation lead to better outcomes. The evidence shows that structured approaches reduce cognitive bias and improve decision quality.',
+  },
+  'node-3': {
+    title: 'Argument B',
+    lane: 'Debater B',
+    content: 'I challenge the assumption that pure rationality is sufficient. Empirical studies reveal that contextual factors, emotional intelligence, and adaptive thinking often produce superior results in real-world scenarios.',
+  },
+  'node-4': {
+    title: 'Synthesis',
+    lane: 'Debater C',
+    content: 'Synthesizing both perspectives, I observe that neither pure rationality nor pure intuition alone suffices. The optimal approach integrates systematic analysis with contextual awareness and adaptive judgment.',
+  },
+  'node-5': {
+    title: 'Conclusion',
+    lane: 'Orchestrator',
+    content: 'The debate reveals a clear path forward: effective decision-making requires a hybrid approach. We recommend structured frameworks supplemented by contextual flexibility and continuous learning.',
+  },
+};
+
 // Empty fallback data
 export const emptyNodes: Node[] = [];
 export const emptyEdges: Edge[] = [];

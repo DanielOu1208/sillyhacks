@@ -5,7 +5,6 @@ import AppShell from '@/components/AppShell';
 import { LaneId, LaneSettings, ReasoningMessage, DebateStatus } from '@/types/ui';
 
 export default function Home() {
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [status, setStatus] = useState<DebateStatus>('idle');
   const [messages, setMessages] = useState<ReasoningMessage[]>([]);
   const [laneSettings, setLaneSettings] = useState<Record<LaneId, LaneSettings>>({
@@ -14,10 +13,6 @@ export default function Home() {
     'debater-b': { model: 'gemini-pro', personality: 'skeptical' },
     'debater-c': { model: 'llama-3', personality: 'creative' },
   });
-
-  const handleNodeSelect = useCallback((nodeId: string | null) => {
-    setSelectedNode(nodeId);
-  }, []);
 
   const handleLaneSettingsChange = useCallback((laneId: LaneId, settings: LaneSettings) => {
     setLaneSettings((prev) => ({
@@ -77,8 +72,6 @@ export default function Home() {
 
   return (
     <AppShell
-      selectedNode={selectedNode}
-      onNodeSelect={handleNodeSelect}
       laneSettings={laneSettings}
       onLaneSettingsChange={handleLaneSettingsChange}
       messages={messages}
