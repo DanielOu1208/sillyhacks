@@ -14,12 +14,28 @@ import {
 } from '@/types/ui';
 import { cn } from '@/lib/utils';
 
-const laneIcons: Record<LaneId, React.ReactNode> = {
-  orchestrator: <Sparkles className="size-8 text-muted-foreground" aria-hidden="true" />,
-  'debater-a': <Shield className="size-8 text-muted-foreground" aria-hidden="true" />,
-  'debater-b': <User className="size-8 text-muted-foreground" aria-hidden="true" />,
-  'debater-c': <Bot className="size-8 text-muted-foreground" aria-hidden="true" />,
+const laneIconComponents: Record<
+  LaneId,
+  React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
+> = {
+  orchestrator: Sparkles,
+  'debater-a': Shield,
+  'debater-b': User,
+  'debater-c': Bot,
 };
+
+function LaneAvatarIcon({ laneId, active }: { laneId: LaneId; active: boolean }) {
+  const Icon = laneIconComponents[laneId];
+  return (
+    <Icon
+      className={cn(
+        'size-8 text-muted-foreground',
+        active && 'motion-safe:animate-pulse text-foreground/85'
+      )}
+      aria-hidden
+    />
+  );
+}
 
 interface ReasoningLanesProps {
   messages: ReasoningMessage[];
@@ -76,7 +92,7 @@ export default function ReasoningLanes({
                 key={lane.id}
                 className="flex flex-col items-center px-4 py-3"
               >
-                {laneIcons[lane.id]}
+                <LaneAvatarIcon laneId={lane.id} active={isSpeaking} />
 
                 <div className="mt-2 flex items-center gap-1.5" role="status" aria-label={isSpeaking ? 'Currently speaking' : 'Idle'}>
                   <span className="text-xs font-medium text-foreground truncate">{lane.label}</span>
@@ -107,17 +123,19 @@ export default function ReasoningLanes({
                   </Badge>
                 </div>
 
-                <div className="mt-3 h-7 w-full border border-border bg-muted/20">
+                <div className="mt-3 h-7 w-full min-w-0">
                   <div
                     ref={(node) => {
                       streamRefs.current[lane.id] = node;
                     }}
-                    className="h-full overflow-x-auto overflow-y-hidden whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className={cn(
+                      'h-full overflow-x-auto overflow-y-hidden whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                    )}
                     role="log"
                     aria-live="polite"
                     aria-label={`${lane.label} output stream`}
                   >
-                    <div className="inline-flex h-full min-w-full items-center gap-2 px-2">
+                    <div className="inline-flex h-full min-w-full items-center gap-2 px-1">
                       {laneMessages.length > 0 ? (
                         laneMessages.map((msg) => (
                           <span

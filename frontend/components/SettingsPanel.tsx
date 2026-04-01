@@ -88,9 +88,6 @@ export default function SettingsPanel({
                           <h3 className="text-xs font-medium text-foreground truncate">
                             {lane.label}
                           </h3>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {lane.role}
-                          </p>
                         </div>
                       </div>
 
