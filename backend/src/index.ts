@@ -14,7 +14,12 @@ const app = new Hono();
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    origin: (origin) => {
+      if (!origin) return origin;
+      if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return origin;
+      if (/^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) return origin;
+      return "";
+    },
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type"],
   }),
