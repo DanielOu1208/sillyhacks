@@ -16,7 +16,7 @@ v1 Prototype
 
 ## 1. Overview
 
-Agent Council is a local-first multi-agent decision application where multiple AI agents, each with its own model, context, and personality, debate a user’s question and converge toward a final recommendation.
+Agent Council is a multi-agent decision application where multiple AI agents, each with its own model, context, and personality, debate a user’s question and converge toward a final recommendation.
 
 The system is designed around an orchestrator-controlled debate flow. Agents do not directly talk to each other in an uncontrolled loop. Instead, the orchestrator assigns tasks, collects responses, triggers critique/refinement rounds, and produces a final answer with a summary of the most important argument points.
 
@@ -30,7 +30,7 @@ The user can:
 - switch between debates in a sidebar
 - revisit prior debate branches
 
-This prototype is local-first and does not use Supabase for persistence. Data will be stored locally using SQLite.
+This prototype persists debate data in a Postgres database accessed through Drizzle ORM.
 
 ---
 
@@ -43,7 +43,7 @@ Build a working prototype that allows a single user to run structured multi-agen
 - Make agent reasoning visually understandable through a graph UI
 - Allow branching and regeneration from any point in a debate
 - Let users customize agent personalities in a structured way
-- Support multiple separate debates with clean local persistence
+- Support multiple separate debates with clean persistence and retrieval
 
 ---
 
@@ -92,7 +92,7 @@ Personalities are structured and customizable, not just raw prompt blobs.
 Each debate is independent. No memory is shared across debates.
 
 ### 4.9 Persistence
-The prototype uses local database storage rather than Supabase.
+The prototype uses Postgres persistence with Drizzle ORM.
 
 ### 4.10 Final Output
 The system must produce:
@@ -244,13 +244,13 @@ Regenerated branches should be visually distinguishable from the original branch
 - React Flow for node graph visualization
 
 ### Backend
-- Next.js Route Handlers
+- Hono API service (Node.js runtime)
 - server-side orchestration modules
 - provider adapter layer for model APIs
 
 ### Persistence
-- SQLite local database
-- Drizzle ORM or Prisma (recommended: Drizzle for lighter prototype footprint)
+- Postgres database
+- Drizzle ORM
 
 ### Optional Local State
 - Zustand for client-side UI state
@@ -258,23 +258,22 @@ Regenerated branches should be visually distinguishable from the original branch
 
 ---
 
-## 9. Local Storage / Persistence Strategy
-
-The prototype should not use Supabase.
+## 9. Persistence Strategy
 
 ### Recommended Persistence Design
-Use a local SQLite database stored in the app environment.
+Use a Postgres database with Drizzle ORM for schema management and typed access.
 
 Recommended options:
-- SQLite file via better-sqlite3 for local desktop/dev environments
-- Drizzle ORM on top of SQLite for schema management and typed access
+- managed Postgres service
+- self-hosted Postgres
+- Drizzle ORM on top of Postgres for schema management and typed access
 
 ### Reasoning
-SQLite is better than browser localStorage because:
+Postgres is better than browser localStorage because:
 - it supports relational data
 - it supports branching/history cleanly
 - it is safer for storing larger structured debate data
-- it makes future migration to a hosted DB easier
+- it is suitable for concurrent API workloads and future scaling
 
 ### File Storage
 If needed later:
@@ -482,7 +481,7 @@ This gives:
 
 ## 15. Data Model
 
-Below is the recommended local database schema.
+Below is the recommended database schema.
 
 ## 15.1 debates
 Purpose: top-level debate container
@@ -692,7 +691,7 @@ CREATE TABLE personality_presets (
 
 ## 17. API Design
 
-All routes can be implemented as Next.js Route Handlers.
+All routes are implemented in a backend HTTP service (Hono).
 
 ## 17.1 Debate Routes
 
@@ -737,14 +736,14 @@ Body:
 ### POST /api/debates/:id/finalize
 Force final synthesis now
 
-### GET /api/runs/:id
+### GET /api/debates/runs/:id
 Get run status
 
 ---
 
 ## 17.3 Regeneration Routes
 
-### POST /api/nodes/:id/regenerate
+### POST /api/debates/nodes/:nodeId/regenerate
 Regenerate from a selected node
 
 Body:
@@ -779,7 +778,7 @@ Delete custom personality
 Each agent response should stream into the UI as it is produced.
 
 ## 18.2 Recommended Approach
-Use server streaming from Route Handlers or a local event system to push partial chunks to the client.
+Use server streaming from the backend service or an event system to push partial chunks to the client.
 
 Options:
 - Server-Sent Events
@@ -922,7 +921,7 @@ The MVP should include:
 - choose personality per agent
 - run orchestrated debate
 - stream outputs
-- store locally in SQLite
+- store in Postgres
 - show graph with one node per message
 - allow user intervention
 - allow regeneration from selected node
@@ -941,7 +940,7 @@ The MVP should include:
 
 ## Phase 1: Core Debate Engine
 Build:
-- local DB schema
+- Postgres schema
 - debate creation flow
 - agent config UI
 - orchestrator phase engine
@@ -1037,46 +1036,44 @@ Use explicit phases and rule-based transitions in code.
 ## 27. Suggested File Structure
 
 ```text
-/app
-  /api
-    /debates
-    /runs
-    /nodes
-    /personalities
-  /debates
-    /[id]
+/frontend
+  /app
+    page.tsx
   /components
     DebateSidebar.tsx
-    DebateGraph.tsx
-    DebateNode.tsx
-    AgentAvatar.tsx
-    PersonalityEditor.tsx
-    FinalAnswerPanel.tsx
+    TopGraphStrip.tsx
+    ReasoningLanes.tsx
+    SettingsPanel.tsx
   /lib
-    /db
-      schema.ts
-      client.ts
-    /orchestrator
-      engine.ts
-      phases.ts
-      context.ts
-      jobs.ts
-      regenerate.ts
-    /models
-      providerAdapter.ts
-      prompts.ts
+    api.ts
   /types
-    debate.ts
-    agent.ts
-    node.ts
-    personality.ts
+    ui.ts
+
+/backend
+  /src
+    /routes
+      debates.ts
+      personalities.ts
+      stream.ts
+    /lib
+      /orchestrator
+        engine.ts
+        phases.ts
+        context.ts
+        jobs.ts
+        regenerate.ts
+      /models
+        providerAdapter.ts
+    /db
+      client.ts
+      schema.ts
 ```
 
 ---
 
 ## 28. Recommended Initial Build Order
 
-1. local database schema
+1. Postgres schema
 2. debate creation UI
 3. personality + model selection UI
 4. orchestrator engine without graph
@@ -1093,7 +1090,7 @@ Use explicit phases and rule-based transitions in code.
 
 These do not block the PRD, but should be decided during build:
 - Which model providers will be supported first?
-- How will model credentials be configured locally?
+- How will model credentials be configured across environments?
 - Will final answer generation use the orchestrator model or a separate dedicated synthesis model?
 - Should branches share the same debate title or allow per-branch labels?
 - Should summary extraction happen during the debate or only at the end?
@@ -1110,7 +1107,7 @@ For this prototype, the hardest problem is not the graph UI. The hardest problem
 
 So the implementation should prioritize:
 1. correct debate lifecycle
-2. reliable local persistence
+2. reliable persistence
 3. branching/regeneration model
 4. streaming
 5. graph visualization last
@@ -1128,5 +1125,4 @@ The prototype is successful if a user can:
 - regenerate from a chosen node
 - switch between branches
 - receive a final recommendation with a useful summary
-- revisit the entire result later from local storage
-
+- revisit the entire result later from database storage
