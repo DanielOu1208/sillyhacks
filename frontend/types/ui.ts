@@ -1,5 +1,4 @@
-// Lane identifiers
-export type LaneId = 'orchestrator' | 'debater-a' | 'debater-b' | 'debater-c';
+export type LaneId = "orchestrator" | "debater-a" | "debater-b" | "debater-c";
 
 export interface LaneConfig {
   id: LaneId;
@@ -9,42 +8,81 @@ export interface LaneConfig {
 }
 
 export const LANE_CONFIGS: LaneConfig[] = [
-  { id: 'orchestrator', label: 'Orchestrator', avatar: '🎯', role: 'Moderator' },
-  { id: 'debater-a', label: 'Debater A', avatar: '🔵', role: 'Proponent' },
-  { id: 'debater-b', label: 'Debater B', avatar: '🟢', role: 'Opponent' },
-  { id: 'debater-c', label: 'Debater C', avatar: '🟡', role: 'Synthesizer' },
+  { id: "orchestrator", label: "Orchestrator", avatar: "🎯", role: "Moderator" },
+  { id: "debater-a", label: "Debater A", avatar: "🔵", role: "Proponent" },
+  { id: "debater-b", label: "Debater B", avatar: "🟢", role: "Opponent" },
+  { id: "debater-c", label: "Debater C", avatar: "🟡", role: "Synthesizer" },
 ];
 
-// Lucide icon names for each lane (used for consistent icon rendering)
+export const AGENT_LANES: LaneId[] = ["debater-a", "debater-b", "debater-c"];
+
 export const LANE_ICON_NAMES: Record<LaneId, string> = {
-  orchestrator: 'sparkles',
-  'debater-a': 'shield',
-  'debater-b': 'user',
-  'debater-c': 'bot',
+  orchestrator: "sparkles",
+  "debater-a": "shield",
+  "debater-b": "user",
+  "debater-c": "bot",
 };
 
-export type ModelOption = 'gpt-4' | 'claude-3' | 'gemini-pro' | 'llama-3';
-export type PersonalityOption = 'neutral' | 'analytical' | 'creative' | 'skeptical' | 'enthusiastic';
+export type DebateStatus = "idle" | "starting" | "running" | "completed" | "errored";
 
 export interface LaneSettings {
-  model: ModelOption;
-  personality: PersonalityOption;
+  modelKey: string;
+  personalityId: string;
 }
 
-export const MODEL_OPTIONS: { value: ModelOption; label: string }[] = [
-  { value: 'gpt-4', label: 'GPT-4' },
-  { value: 'claude-3', label: 'Claude 3' },
-  { value: 'gemini-pro', label: 'Gemini Pro' },
-  { value: 'llama-3', label: 'Llama 3' },
-];
+export interface AgentPersonality {
+  name: string;
+  role: string;
+  tone: string;
+  goal: string;
+  worldview: string;
+  debateStyle: string;
+  riskTolerance: "low" | "medium" | "high";
+  verbosity: "short" | "medium" | "long";
+  preferredOutputFormat: string;
+  constraints: string[];
+  customInstructions: string;
+  avatarSeed?: string;
+}
 
-export const PERSONALITY_OPTIONS: { value: PersonalityOption; label: string }[] = [
-  { value: 'neutral', label: 'Neutral' },
-  { value: 'analytical', label: 'Analytical' },
-  { value: 'creative', label: 'Creative' },
-  { value: 'skeptical', label: 'Skeptical' },
-  { value: 'enthusiastic', label: 'Enthusiastic' },
-];
+export interface ApiModel {
+  key: string;
+  label: string;
+  provider: string;
+}
+
+export interface ApiPersonality {
+  id: string;
+  name: string;
+  description?: string | null;
+  personality: AgentPersonality;
+  isUserCreated: boolean;
+}
+
+export interface DebateGraphNode {
+  id: string;
+  parentNodeId: string | null;
+  speakerType: "user" | "orchestrator" | "agent" | "system";
+  speakerId: string | null;
+  nodeType: "message" | "summary" | "final" | "intervention" | "regen_root";
+  content: string;
+  status: "pending" | "streaming" | "complete" | "errored" | "superseded";
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface DebateGraphEdge {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  edgeType:
+    | "responds_to"
+    | "criticizes"
+    | "supports"
+    | "summarizes"
+    | "regenerated_from"
+    | "spawned_by_orchestrator";
+}
 
 export interface ReasoningMessage {
   id: string;
@@ -52,6 +90,5 @@ export interface ReasoningMessage {
   content: string;
   timestamp: Date;
   isUser?: boolean;
+  isStreaming?: boolean;
 }
-
-export type DebateStatus = 'idle' | 'running' | 'paused' | 'completed';

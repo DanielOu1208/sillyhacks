@@ -1,14 +1,14 @@
 'use client';
 
-import { useCallback, useMemo, useState, useRef } from 'react';
-import ReactFlow, { Node, Background } from 'reactflow';
+import { useCallback, useMemo, useState, useRef, type MouseEvent } from 'react';
+import ReactFlow, { Background, Edge, Node } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { X, GripVertical, MessageSquare } from 'lucide-react';
-import { mockNodes, mockEdges, nodeConversations } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { DebateGraphEdge, DebateGraphNode, LaneId, LANE_CONFIGS } from '@/types/ui';
 
 interface OpenPopout {
   id: string;
@@ -16,15 +16,55 @@ interface OpenPopout {
   y: number;
 }
 
-// Constants for popout positioning
+interface NodeDetails {
+  title: string;
+  lane: string;
+  content: string;
+}
+
+interface TopGraphStripProps {
+  graphNodes: DebateGraphNode[];
+  graphEdges: DebateGraphEdge[];
+  resolveLane: (node: DebateGraphNode) => LaneId;
+}
+
 const POPOUT_WIDTH = 320;
-const POPOUT_HEIGHT = 200;
+const POPOUT_HEIGHT = 220;
 const POPOUT_GAP = 16;
 const POPOUT_COLUMNS = 2;
 const MIN_X_CLEAR_SETTINGS = 340;
 const POPOUT_START_Y = 24;
 
-export default function TopGraphStrip() {
+const LANE_COLORS: Record<LaneId, string> = {
+  orchestrator: 'oklch(0.72 0.14 270)',
+  'debater-a': 'oklch(0.72 0.16 250)',
+  'debater-b': 'oklch(0.78 0.14 160)',
+  'debater-c': 'oklch(0.82 0.14 90)',
+};
+
+function getNodeTitle(node: DebateGraphNode): string {
+  if (node.nodeType === 'final') return 'Final Answer';
+  if (node.nodeType === 'summary') return 'Summary';
+  if (node.nodeType === 'intervention') return 'Intervention';
+  if (node.nodeType === 'regen_root') return 'Regeneration Root';
+  if (node.speakerType === 'user') return 'User Prompt';
+  if (node.speakerType === 'orchestrator') return 'Orchestrator';
+  if (node.speakerType === 'system') return 'System';
+  return 'Agent Message';
+}
+
+function getNodeLabel(node: DebateGraphNode): string {
+  if (!node.content) {
+    return node.status === 'streaming' ? 'Streaming...' : getNodeTitle(node);
+  }
+  return node.content.length > 42 ? `${node.content.slice(0, 42)}...` : node.content;
+}
+
+export default function TopGraphStrip({
+  graphNodes,
+  graphEdges,
+  resolveLane,
+}: TopGraphStripProps) {
   const [openPopouts, setOpenPopouts] = useState<Map<string, OpenPopout>>(new Map());
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -46,8 +86,109 @@ export default function TopGraphStrip() {
     };
   }, [openPopouts]);
 
+  const { flowNodes, flowEdges, nodeDetails } = useMemo(() => {
+    const sortedNodes = [...graphNodes].sort((a, b) => {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const laneRowIndex = new Map(LANE_CONFIGS.map((lane, index) => [lane.id, index]));
+    const nodesById = new Map(sortedNodes.map((node) => [node.id, node]));
+    const depthByNodeId = new Map<string, number>();
+
+    const getDepth = (nodeId: string): number => {
+      const cached = depthByNodeId.get(nodeId);
+      if (cached !== undefined) return cached;
+
+      const node = nodesById.get(nodeId);
+      if (!node?.parentNodeId || !nodesById.has(node.parentNodeId)) {
+        depthByNodeId.set(nodeId, 0);
+        return 0;
+      }
+
+      const depth = getDepth(node.parentNodeId) + 1;
+      depthByNodeId.set(nodeId, depth);
+      return depth;
+    };
+
+    const laneDepthOffsets = new Map<string, number>();
+    const nextFlowNodes: Node[] = [];
+    const details: Record<string, NodeDetails> = {};
+
+    for (const node of sortedNodes) {
+      const laneId = resolveLane(node);
+      const laneIndex = laneRowIndex.get(laneId) ?? 0;
+      const depth = getDepth(node.id);
+
+      const laneDepthKey = `${laneId}:${depth}`;
+      const offsetInLaneDepth = laneDepthOffsets.get(laneDepthKey) ?? 0;
+      laneDepthOffsets.set(laneDepthKey, offsetInLaneDepth + 1);
+
+      const title = getNodeTitle(node);
+      const laneLabel = LANE_CONFIGS.find((lane) => lane.id === laneId)?.label ?? 'Unknown';
+
+      details[node.id] = {
+        title,
+        lane: laneLabel,
+        content: node.content || (node.status === 'streaming' ? 'Streaming...' : 'No content'),
+      };
+
+      nextFlowNodes.push({
+        id: node.id,
+        type: 'default',
+        position: {
+          x: 90 + depth * 290,
+          y: 50 + laneIndex * 165 + offsetInLaneDepth * 22,
+        },
+        data: { label: getNodeLabel(node) },
+        style: {
+          background: 'oklch(0.14 0.008 270)',
+          color: LANE_COLORS[laneId],
+          border:
+            node.status === 'streaming'
+              ? `2px solid ${LANE_COLORS[laneId]}`
+              : '2px solid oklch(0.25 0.012 270)',
+          borderRadius: '0px',
+          padding: '10px 15px',
+          fontSize: '13px',
+          fontWeight: 500,
+          cursor: 'pointer',
+          boxShadow:
+            node.status === 'streaming'
+              ? `0 0 10px color-mix(in srgb, ${LANE_COLORS[laneId]} 55%, transparent)`
+              : 'none',
+        },
+      });
+    }
+
+    const fallbackEdges: Edge[] = sortedNodes
+      .filter((node) => node.parentNodeId)
+      .map((node) => ({
+        id: `parent-${node.parentNodeId}-${node.id}`,
+        source: node.parentNodeId as string,
+        target: node.id,
+        animated: node.status === 'streaming',
+        style: { stroke: 'oklch(0.25 0.012 270)' },
+      }));
+
+    const nextFlowEdges: Edge[] =
+      graphEdges.length > 0
+        ? graphEdges.map((edge) => {
+            const targetNode = nodesById.get(edge.toNodeId);
+            return {
+              id: edge.id,
+              source: edge.fromNodeId,
+              target: edge.toNodeId,
+              animated: targetNode?.status === 'streaming',
+              style: { stroke: 'oklch(0.25 0.012 270)' },
+            };
+          })
+        : fallbackEdges;
+
+    return { flowNodes: nextFlowNodes, flowEdges: nextFlowEdges, nodeDetails: details };
+  }, [graphNodes, graphEdges, resolveLane]);
+
   const nodes = useMemo(() => {
-    return mockNodes.map((node) => ({
+    return flowNodes.map((node) => ({
       ...node,
       style: {
         ...node.style,
@@ -56,78 +197,70 @@ export default function TopGraphStrip() {
           : node.style?.border || '2px solid oklch(0.25 0.012 270)',
         boxShadow: openPopouts.has(node.id)
           ? '0 0 12px oklch(0.72 0.14 270 / 0.4)'
-          : 'none',
-        cursor: 'pointer',
+          : node.style?.boxShadow || 'none',
       },
     }));
-  }, [openPopouts]);
-
-  const edges = useMemo(() => {
-    return mockEdges;
-  }, []);
+  }, [flowNodes, openPopouts]);
 
   const togglePopout = useCallback(
     (nodeId: string) => {
       setOpenPopouts((prev) => {
-        const newMap = new Map(prev);
-        if (newMap.has(nodeId)) {
-          newMap.delete(nodeId);
+        const next = new Map(prev);
+        if (next.has(nodeId)) {
+          next.delete(nodeId);
         } else {
-          newMap.set(nodeId, {
-            id: nodeId,
-            ...getNextPosition(),
-          });
+          next.set(nodeId, { id: nodeId, ...getNextPosition() });
         }
-        return newMap;
+        return next;
       });
     },
-    [getNextPosition]
+    [getNextPosition],
   );
 
   const closePopout = useCallback((nodeId: string) => {
     setOpenPopouts((prev) => {
-      const newMap = new Map(prev);
-      newMap.delete(nodeId);
-      return newMap;
+      const next = new Map(prev);
+      next.delete(nodeId);
+      return next;
     });
   }, []);
 
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent, nodeId: string) => {
-      e.preventDefault();
+    (event: MouseEvent, nodeId: string) => {
+      event.preventDefault();
       const popout = openPopouts.get(nodeId);
       const rect = containerRef.current?.getBoundingClientRect();
       if (!popout || !rect) return;
 
       dragOffset.current = {
-        x: e.clientX - rect.left - popout.x,
-        y: e.clientY - rect.top - popout.y,
+        x: event.clientX - rect.left - popout.x,
+        y: event.clientY - rect.top - popout.y,
       };
       setDraggingId(nodeId);
     },
-    [openPopouts]
+    [openPopouts],
   );
 
   const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+    (event: MouseEvent) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!draggingId || !rect) return;
 
       const maxX = Math.max(0, rect.width - POPOUT_WIDTH);
       const maxY = Math.max(0, rect.height - POPOUT_HEIGHT);
-      const newX = Math.min(maxX, Math.max(0, e.clientX - rect.left - dragOffset.current.x));
-      const newY = Math.min(maxY, Math.max(0, e.clientY - rect.top - dragOffset.current.y));
+      const newX = Math.min(maxX, Math.max(0, event.clientX - rect.left - dragOffset.current.x));
+      const newY = Math.min(maxY, Math.max(0, event.clientY - rect.top - dragOffset.current.y));
 
       setOpenPopouts((prev) => {
-        const newMap = new Map(prev);
-        const popout = newMap.get(draggingId);
+        const next = new Map(prev);
+        const popout = next.get(draggingId);
         if (popout) {
-          newMap.set(draggingId, { ...popout, x: newX, y: newY });
+          next.set(draggingId, { ...popout, x: newX, y: newY });
         }
-        return newMap;
+        return next;
       });
     },
-    [draggingId]
+    [draggingId],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -135,18 +268,18 @@ export default function TopGraphStrip() {
   }, []);
 
   const onNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
+    (_event: MouseEvent, node: Node) => {
       togglePopout(node.id);
     },
-    [togglePopout]
+    [togglePopout],
   );
 
-  if (mockNodes.length === 0) {
+  if (nodes.length === 0) {
     return (
       <div className="absolute inset-0 bg-card flex items-center justify-center">
         <div className="flex flex-col items-center gap-2">
           <MessageSquare className="size-8 text-muted-foreground" />
-          <p className="text-muted-foreground">No graph data available</p>
+          <p className="text-muted-foreground">Start a debate to render the graph</p>
         </div>
       </div>
     );
@@ -162,7 +295,7 @@ export default function TopGraphStrip() {
     >
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={flowEdges}
         onNodeClick={onNodeClick}
         fitView
         fitViewOptions={{ padding: 0.2 }}
@@ -170,18 +303,17 @@ export default function TopGraphStrip() {
         zoomOnScroll
         zoomOnPinch
         zoomOnDoubleClick={false}
-        preventScrolling={true}
+        preventScrolling
         nodesDraggable={false}
         nodesConnectable={false}
-        elementsSelectable={true}
+        elementsSelectable
         style={{ background: 'oklch(0.14 0.008 270)' }}
       >
         <Background color="oklch(0.2 0.01 270)" gap={16} />
       </ReactFlow>
 
-      {/* Open Popouts */}
       {Array.from(openPopouts.entries()).map(([nodeId, popout]) => {
-        const nodeData = nodeConversations[nodeId];
+        const nodeData = nodeDetails[nodeId];
         if (!nodeData) return null;
 
         return (
@@ -195,10 +327,9 @@ export default function TopGraphStrip() {
               userSelect: draggingId === nodeId ? 'none' : 'auto',
             }}
           >
-            {/* Popup Header - Draggable */}
             <CardHeader
               className="cursor-move py-3 flex-row items-center justify-between space-y-0"
-              onMouseDown={(e) => handleMouseDown(e, nodeId)}
+              onMouseDown={(event) => handleMouseDown(event, nodeId)}
             >
               <div className="flex items-center gap-2">
                 <GripVertical className="size-4 text-muted-foreground" />
@@ -211,8 +342,8 @@ export default function TopGraphStrip() {
               <Button
                 variant="ghost"
                 size="icon-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={(event) => {
+                  event.stopPropagation();
                   closePopout(nodeId);
                 }}
                 aria-label="Close popup"
@@ -222,8 +353,8 @@ export default function TopGraphStrip() {
             </CardHeader>
             <Separator />
             <CardContent className="py-3">
-              <ScrollArea className="max-h-[120px]">
-                <p className="text-sm text-muted-foreground leading-relaxed">
+              <ScrollArea className="max-h-[140px]">
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
                   {nodeData.content}
                 </p>
               </ScrollArea>

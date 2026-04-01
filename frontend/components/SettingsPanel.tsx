@@ -19,16 +19,26 @@ import {
 } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { LaneId, LaneSettings, LANE_CONFIGS, MODEL_OPTIONS, PERSONALITY_OPTIONS } from '@/types/ui';
+import {
+  ApiModel,
+  ApiPersonality,
+  LaneId,
+  LaneSettings,
+  LANE_CONFIGS,
+} from '@/types/ui';
 
 interface SettingsPanelProps {
   laneSettings: Record<LaneId, LaneSettings>;
   onLaneSettingsChange: (laneId: LaneId, settings: LaneSettings) => void;
+  modelOptions: ApiModel[];
+  personalityOptions: ApiPersonality[];
 }
 
 export default function SettingsPanel({
   laneSettings,
   onLaneSettingsChange,
+  modelOptions,
+  personalityOptions,
 }: SettingsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -55,6 +65,8 @@ export default function SettingsPanel({
               <div className="flex flex-col gap-2">
                 {LANE_CONFIGS.map((lane) => {
                   const settings = laneSettings[lane.id];
+                  const modelValue = settings?.modelKey ?? '';
+                  const personalityValue = settings?.personalityId ?? '';
 
                   return (
                     <div
@@ -79,11 +91,11 @@ export default function SettingsPanel({
                           Model
                         </label>
                         <Select
-                          value={settings.model}
+                          value={modelValue}
                           onValueChange={(value) =>
                             onLaneSettingsChange(lane.id, {
                               ...settings,
-                              model: value as LaneSettings['model'],
+                              modelKey: value,
                             })
                           }
                         >
@@ -92,8 +104,8 @@ export default function SettingsPanel({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
-                              {MODEL_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
+                              {modelOptions.map((opt) => (
+                                <SelectItem key={opt.key} value={opt.key}>
                                   {opt.label}
                                 </SelectItem>
                               ))}
@@ -108,11 +120,11 @@ export default function SettingsPanel({
                           Personality
                         </label>
                         <Select
-                          value={settings.personality}
+                          value={personalityValue}
                           onValueChange={(value) =>
                             onLaneSettingsChange(lane.id, {
                               ...settings,
-                              personality: value as LaneSettings['personality'],
+                              personalityId: value,
                             })
                           }
                         >
@@ -121,9 +133,9 @@ export default function SettingsPanel({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
-                              {PERSONALITY_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
+                              {personalityOptions.map((opt) => (
+                                <SelectItem key={opt.id} value={opt.id}>
+                                  {opt.name}
                                 </SelectItem>
                               ))}
                             </SelectGroup>

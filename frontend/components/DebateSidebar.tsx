@@ -8,8 +8,8 @@ import {
   HelpCircle,
   Circle,
   Play,
-  Pause,
-  AlertTriangle,
+  Loader2,
+  AlertCircle,
   CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,30 +19,30 @@ import { DebateStatus } from '@/types/ui';
 
 interface DebateSidebarProps {
   status: DebateStatus;
-  onStatusChange: (status: DebateStatus) => void;
+  onFinalize: () => void;
+  disableFinalize: boolean;
 }
 
-export default function DebateSidebar({ status, onStatusChange }: DebateSidebarProps) {
+export default function DebateSidebar({
+  status,
+  onFinalize,
+  disableFinalize,
+}: DebateSidebarProps) {
   const statusColor: Record<DebateStatus, string> = {
     idle: 'text-muted-foreground',
+    starting: 'text-yellow-400 animate-pulse',
     running: 'text-green-400 animate-pulse',
-    paused: 'text-yellow-400',
     completed: 'text-primary',
+    errored: 'text-red-400',
   };
 
   const statusLabel: Record<DebateStatus, string> = {
     idle: 'Ready',
+    starting: 'Starting',
     running: 'Active',
-    paused: 'Paused',
     completed: 'Done',
+    errored: 'Error',
   };
-
-  const handleStart = () => onStatusChange('running');
-  const handlePause = () => onStatusChange('paused');
-  const handleIntervene = () => {
-    alert('Intervention triggered! This would pause for user input in a real implementation.');
-  };
-  const handleFinalize = () => onStatusChange('completed');
 
   return (
     <aside className="w-60 bg-card flex flex-col border-r border-border">
@@ -98,57 +98,24 @@ export default function DebateSidebar({ status, onStatusChange }: DebateSidebarP
         </div>
         <div className="flex flex-col gap-2">
           {status === 'idle' && (
-            <Button
-              onClick={handleStart}
-              className="w-full bg-green-600 hover:bg-green-500 text-white"
-            >
+            <Button disabled className="w-full">
               <Play className="size-4" />
-              Start
+              Send First Prompt
             </Button>
           )}
 
-          {status === 'running' && (
-            <>
-              <Button
-                onClick={handlePause}
-                className="w-full bg-yellow-600 hover:bg-yellow-500 text-white"
-              >
-                <Pause className="size-4" />
-                Pause
-              </Button>
-              <Button
-                onClick={handleIntervene}
-                className="w-full bg-orange-600 hover:bg-orange-500 text-white"
-              >
-                <AlertTriangle className="size-4" />
-                Intervene
-              </Button>
-            </>
+          {status === 'starting' && (
+            <Button disabled className="w-full">
+              <Loader2 className="size-4 animate-spin" />
+              Starting Debate
+            </Button>
           )}
 
-          {status === 'paused' && (
-            <>
-              <Button
-                onClick={handleStart}
-                className="w-full bg-green-600 hover:bg-green-500 text-white"
-              >
-                <Play className="size-4" />
-                Resume
-              </Button>
-              <Button
-                onClick={handleIntervene}
-                className="w-full bg-orange-600 hover:bg-orange-500 text-white"
-              >
-                <AlertTriangle className="size-4" />
-                Intervene
-              </Button>
-            </>
-          )}
-
-          {(status === 'running' || status === 'paused') && (
+          {(status === 'running' || status === 'completed' || status === 'errored') && (
             <Button
-              onClick={handleFinalize}
+              onClick={onFinalize}
               className="w-full bg-blue-600 hover:bg-blue-500 text-white"
+              disabled={disableFinalize}
             >
               <CheckCircle2 className="size-4" />
               Finalize
@@ -156,10 +123,15 @@ export default function DebateSidebar({ status, onStatusChange }: DebateSidebarP
           )}
 
           {status === 'completed' && (
-            <Button disabled className="w-full">
-              <CheckCircle2 className="size-4" />
-              Completed
-            </Button>
+            <p className="text-xs text-muted-foreground px-1">
+              Debate completed. Send a new prompt to create another debate.
+            </p>
+          )}
+          {status === 'errored' && (
+            <div className="flex items-start gap-2 text-xs text-red-300 px-1">
+              <AlertCircle className="size-3.5 mt-0.5 flex-shrink-0" />
+              <span>Run failed. Send a new prompt to try again.</span>
+            </div>
           )}
         </div>
       </div>

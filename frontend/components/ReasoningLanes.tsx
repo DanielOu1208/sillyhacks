@@ -1,19 +1,19 @@
 'use client';
 
 import { Circle, User, Bot, Sparkles, Shield } from 'lucide-react';
+import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
+  ApiModel,
+  ApiPersonality,
   LaneId,
   LaneSettings,
   ReasoningMessage,
   LANE_CONFIGS,
-  MODEL_OPTIONS,
-  PERSONALITY_OPTIONS,
 } from '@/types/ui';
-import { mockReasoningTexts } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 
 const laneIcons: Record<LaneId, React.ReactNode> = {
@@ -26,9 +26,24 @@ const laneIcons: Record<LaneId, React.ReactNode> = {
 interface ReasoningLanesProps {
   messages: ReasoningMessage[];
   laneSettings: Record<LaneId, LaneSettings>;
+  modelOptions: ApiModel[];
+  personalityOptions: ApiPersonality[];
 }
 
-export default function ReasoningLanes({ messages, laneSettings }: ReasoningLanesProps) {
+export default function ReasoningLanes({
+  messages,
+  laneSettings,
+  modelOptions,
+  personalityOptions,
+}: ReasoningLanesProps) {
+  const modelLabelByKey = useMemo(() => {
+    return new Map(modelOptions.map((model) => [model.key, model.label]));
+  }, [modelOptions]);
+
+  const personalityLabelById = useMemo(() => {
+    return new Map(personalityOptions.map((personality) => [personality.id, personality.name]));
+  }, [personalityOptions]);
+
   return (
     <Card className="bg-popover/95 backdrop-blur-sm shadow-xl border border-border py-0">
       <CardContent className="p-0">
@@ -36,15 +51,11 @@ export default function ReasoningLanes({ messages, laneSettings }: ReasoningLane
           {LANE_CONFIGS.map((lane, index) => {
             const settings = laneSettings[lane.id];
             const laneMessages = messages.filter((m) => m.laneId === lane.id);
-            const modelLabel =
-              MODEL_OPTIONS.find((m) => m.value === settings.model)?.label || settings.model;
+            const modelLabel = modelLabelByKey.get(settings.modelKey) ?? settings.modelKey;
             const personalityLabel =
-              PERSONALITY_OPTIONS.find((p) => p.value === settings.personality)?.label ||
-              settings.personality;
+              personalityLabelById.get(settings.personalityId) ?? settings.personalityId;
 
-            const isSpeaking =
-              laneMessages.length > 0 &&
-              laneMessages[laneMessages.length - 1]?.isUser !== true;
+            const isSpeaking = laneMessages.some((message) => message.isStreaming);
 
             return (
               <div key={lane.id}>
@@ -71,10 +82,10 @@ export default function ReasoningLanes({ messages, laneSettings }: ReasoningLane
                       </div>
                       <div className="flex gap-1">
                         <Badge variant="secondary" className="h-4 px-1 text-[10px] bg-purple-500/20 text-purple-400 border-0">
-                          {modelLabel}
+                          {modelLabel || 'No model'}
                         </Badge>
                         <Badge variant="secondary" className="h-4 px-1 text-[10px] bg-blue-500/20 text-blue-400 border-0">
-                          {personalityLabel}
+                          {personalityLabel || 'No personality'}
                         </Badge>
                       </div>
                     </div>
@@ -99,7 +110,7 @@ export default function ReasoningLanes({ messages, laneSettings }: ReasoningLane
                         ))
                       ) : (
                         <div className="text-xs text-muted-foreground whitespace-nowrap">
-                          {mockReasoningTexts[lane.id] || 'Waiting for input...'}
+                          Waiting for input...
                         </div>
                       )}
                     </div>
