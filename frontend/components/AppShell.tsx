@@ -84,6 +84,7 @@ export default function AppShell({
           graphNodes={graphNodes}
           graphEdges={graphEdges}
           resolveLane={resolveLane}
+          laneConfigs={laneConfigs}
         />
 
         {/* Anchored controls */}

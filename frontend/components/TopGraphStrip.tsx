@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { DebateGraphEdge, DebateGraphNode, LaneId, LANE_CONFIGS } from '@/types/ui';
+import { DebateGraphEdge, DebateGraphNode, LaneConfig, LaneId } from '@/types/ui';
 
 interface OpenPopout {
   id: string;
@@ -26,6 +26,7 @@ interface TopGraphStripProps {
   graphNodes: DebateGraphNode[];
   graphEdges: DebateGraphEdge[];
   resolveLane: (node: DebateGraphNode) => LaneId;
+  laneConfigs: LaneConfig[];
 }
 
 const POPOUT_WIDTH = 320;
@@ -35,12 +36,22 @@ const POPOUT_COLUMNS = 2;
 const MIN_X_CLEAR_SETTINGS = 340;
 const POPOUT_START_Y = 24;
 
-const LANE_COLORS: Record<LaneId, string> = {
-  orchestrator: 'oklch(0.7 0 0)',
-  'debater-a': 'oklch(0.65 0 0)',
-  'debater-b': 'oklch(0.6 0 0)',
-  'debater-c': 'oklch(0.55 0 0)',
-};
+const LANE_COLOR_PALETTE = [
+  'oklch(0.7 0 0)',
+  'oklch(0.65 0 0)',
+  'oklch(0.6 0 0)',
+  'oklch(0.55 0 0)',
+  'oklch(0.62 0 0)',
+  'oklch(0.58 0 0)',
+  'oklch(0.68 0 0)',
+  'oklch(0.52 0 0)',
+  'oklch(0.72 0 0)',
+];
+
+function getLaneColor(laneId: LaneId, laneConfigs: LaneConfig[]): string {
+  const index = laneConfigs.findIndex((lane) => lane.id === laneId);
+  return LANE_COLOR_PALETTE[index >= 0 ? index % LANE_COLOR_PALETTE.length : 0];
+}
 
 function getNodeTitle(node: DebateGraphNode): string {
   if (node.nodeType === 'final') return 'Final Answer';
@@ -64,6 +75,7 @@ export default function TopGraphStrip({
   graphNodes,
   graphEdges,
   resolveLane,
+  laneConfigs,
 }: TopGraphStripProps) {
   const [openPopouts, setOpenPopouts] = useState<Map<string, OpenPopout>>(new Map());
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -94,7 +106,7 @@ export default function TopGraphStrip({
     });
 
     const nodesById = new Map(sortedNodes.map((node) => [node.id, node]));
-    const laneRowIndex = new Map(LANE_CONFIGS.map((lane, index) => [lane.id, index]));
+    const laneRowIndex = new Map(laneConfigs.map((lane, index) => [lane.id, index]));
 
     const edgeRelationKey = (edge: {
       fromNodeId: string;
@@ -166,7 +178,8 @@ export default function TopGraphStrip({
       laneColumnOffsets.set(laneColumnKey, offsetInLaneColumn + 1);
 
       const title = getNodeTitle(node);
-      const laneLabel = LANE_CONFIGS.find((lane) => lane.id === laneId)?.label ?? 'Unknown';
+      const laneLabel = laneConfigs.find((lane) => lane.id === laneId)?.label ?? 'Unknown';
+      const laneColor = getLaneColor(laneId, laneConfigs);
       details[node.id] = {
         title,
         lane: laneLabel,
@@ -178,17 +191,17 @@ export default function TopGraphStrip({
         type: 'default',
         position: {
           x: 90 + column * 320,
-          y: 50 + laneIndex * 185 + offsetInLaneColumn * 38,
+          y: 50 + (laneIndex ?? 0) * 185 + offsetInLaneColumn * 38,
         },
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
         data: { label: getNodeLabel(node) },
         style: {
           background: 'oklch(0.15 0 0)',
-          color: LANE_COLORS[laneId],
+          color: laneColor,
           border:
             node.status === 'streaming'
-              ? `2px solid ${LANE_COLORS[laneId]}`
+              ? `2px solid ${laneColor}`
               : '2px solid oklch(0.28 0 0)',
           borderRadius: '0px',
           padding: '10px 15px',
@@ -197,7 +210,7 @@ export default function TopGraphStrip({
           cursor: 'pointer',
           boxShadow:
             node.status === 'streaming'
-              ? `0 0 10px color-mix(in srgb, ${LANE_COLORS[laneId]} 55%, transparent)`
+              ? `0 0 10px color-mix(in srgb, ${laneColor} 55%, transparent)`
               : 'none',
         },
       });
@@ -273,7 +286,7 @@ export default function TopGraphStrip({
       });
 
     return { flowNodes: nextFlowNodes, flowEdges: nextFlowEdges, nodeDetails: details };
-  }, [graphNodes, graphEdges, resolveLane]);
+  }, [graphNodes, graphEdges, resolveLane, laneConfigs]);
 
   const nodes = useMemo(() => {
     return flowNodes.map((node) => ({
