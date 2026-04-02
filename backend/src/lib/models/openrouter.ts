@@ -20,7 +20,7 @@ export function createOpenRouterAdapter(modelName: string): ModelAdapter {
         model: modelName,
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens ?? 2048,
+        max_tokens: options?.maxTokens ?? 8192,
         stream: true,
       });
 

@@ -133,6 +133,21 @@ body {
   }
 }
 
+@keyframes lane-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.15);
+  }
+}
+
+.animate-lane-pulse {
+  animation: lane-pulse 1.2s ease-in-out infinite;
+}
+
 /* React Flow custom styles for dark theme */
 .react-flow__background {
   background-color: oklch(0.15 0 0) !important;

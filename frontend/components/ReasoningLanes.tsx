@@ -29,8 +29,8 @@ function LaneAvatarIcon({ laneId, active }: { laneId: LaneId; active: boolean })
   return (
     <Icon
       className={cn(
-        'size-8 text-muted-foreground',
-        active && 'motion-safe:animate-pulse text-foreground/85'
+        'size-12 text-muted-foreground',
+        active && 'text-foreground/85 animate-lane-pulse'
       )}
       aria-hidden
     />
@@ -98,9 +98,9 @@ export default function ReasoningLanes({
                   <span className="text-xs font-medium text-foreground truncate">{lane.label}</span>
                   <Circle
                     className={cn(
-                      'size-1.5 flex-shrink-0',
+                      'size-2.5 flex-shrink-0',
                       isSpeaking
-                        ? 'motion-safe:animate-pulse text-foreground/80 fill-current'
+                        ? 'text-foreground/80 fill-current animate-lane-pulse'
                         : 'text-muted-foreground'
                     )}
                   />

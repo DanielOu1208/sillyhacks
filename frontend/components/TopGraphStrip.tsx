@@ -154,6 +154,7 @@ export default function TopGraphStrip({
     const laneColumnOffsets = new Map<string, number>();
     const nextFlowNodes: Node[] = [];
     const details: Record<string, NodeDetails> = {};
+    const nodeOrderById = new Map(sortedNodes.map((node, index) => [node.id, index]));
 
     for (const node of sortedNodes) {
       const laneId = resolveLane(node);
@@ -200,6 +201,61 @@ export default function TopGraphStrip({
               : 'none',
         },
       });
+    }
+
+    const flowNodeById = new Map(nextFlowNodes.map((node) => [node.id, node]));
+    const childrenByParentId = new Map<string, string[]>();
+
+    for (const edge of mergedEdges) {
+      if (!nodesById.has(edge.fromNodeId) || !nodesById.has(edge.toNodeId)) continue;
+      const children = childrenByParentId.get(edge.fromNodeId) ?? [];
+      children.push(edge.toNodeId);
+      childrenByParentId.set(edge.fromNodeId, children);
+    }
+
+    // Keep multi-agent split children inline with their parent by anchoring the highest
+    // child to the parent Y and preserving the existing sibling spacing underneath it.
+    const qualifyingParents = Array.from(childrenByParentId.entries())
+      .filter(([, childIds]) => {
+        const agentChildCount = childIds.filter(
+          (childId) => nodesById.get(childId)?.speakerType === 'agent',
+        ).length;
+        return agentChildCount >= 2;
+      })
+      .map(([parentId]) => parentId)
+      .sort((leftParentId, rightParentId) => {
+        const leftColumn = columnByNodeId.get(leftParentId) ?? 0;
+        const rightColumn = columnByNodeId.get(rightParentId) ?? 0;
+        if (leftColumn !== rightColumn) return leftColumn - rightColumn;
+
+        const leftOrder = nodeOrderById.get(leftParentId) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = nodeOrderById.get(rightParentId) ?? Number.MAX_SAFE_INTEGER;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+
+        return leftParentId.localeCompare(rightParentId);
+      });
+
+    for (const parentId of qualifyingParents) {
+      const parentNode = flowNodeById.get(parentId);
+      if (!parentNode) continue;
+
+      const agentChildren = (childrenByParentId.get(parentId) ?? [])
+        .filter((childId) => nodesById.get(childId)?.speakerType === 'agent')
+        .map((childId) => flowNodeById.get(childId))
+        .filter((childNode): childNode is Node => Boolean(childNode));
+
+      if (agentChildren.length < 2) continue;
+
+      const minChildY = Math.min(...agentChildren.map((childNode) => childNode.position.y));
+      const yShift = parentNode.position.y - minChildY;
+      if (yShift === 0) continue;
+
+      for (const childNode of agentChildren) {
+        childNode.position = {
+          ...childNode.position,
+          y: childNode.position.y + yShift,
+        };
+      }
     }
 
     const nextFlowEdges: Edge[] = mergedEdges

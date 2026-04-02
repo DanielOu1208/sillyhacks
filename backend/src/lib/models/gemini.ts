@@ -13,7 +13,7 @@ export function createGeminiAdapter(modelName: string): ModelAdapter {
         model: modelName,
         generationConfig: {
           temperature: options?.temperature ?? 0.7,
-          maxOutputTokens: options?.maxTokens ?? 2048,
+          maxOutputTokens: options?.maxTokens ?? 8192,
         },
       });
 
