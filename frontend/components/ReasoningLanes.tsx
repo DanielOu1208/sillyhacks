@@ -7,25 +7,17 @@ import { Badge } from '@/components/ui/badge';
 import {
   ApiModel,
   ApiPersonality,
+  LaneConfig,
   LaneId,
   LaneSettings,
   ReasoningMessage,
-  LANE_CONFIGS,
 } from '@/types/ui';
 import { cn } from '@/lib/utils';
 
-const laneIconComponents: Record<
-  LaneId,
-  React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
-> = {
-  orchestrator: Sparkles,
-  'debater-a': Shield,
-  'debater-b': User,
-  'debater-c': Bot,
-};
+const LANE_ICON_POOL = [Shield, User, Bot, Sparkles, Shield, User, Bot, Sparkles];
 
-function LaneAvatarIcon({ laneId, active }: { laneId: LaneId; active: boolean }) {
-  const Icon = laneIconComponents[laneId];
+function LaneAvatarIcon({ laneId, active, index }: { laneId: LaneId; active: boolean; index: number }) {
+  const Icon = laneId === 'orchestrator' ? Sparkles : LANE_ICON_POOL[index % LANE_ICON_POOL.length];
   return (
     <Icon
       className={cn(
@@ -38,6 +30,7 @@ function LaneAvatarIcon({ laneId, active }: { laneId: LaneId; active: boolean })
 }
 
 interface ReasoningLanesProps {
+  laneConfigs: LaneConfig[];
   messages: ReasoningMessage[];
   laneSettings: Record<LaneId, LaneSettings>;
   modelOptions: ApiModel[];
@@ -45,17 +38,13 @@ interface ReasoningLanesProps {
 }
 
 export default function ReasoningLanes({
+  laneConfigs,
   messages,
   laneSettings,
   modelOptions,
   personalityOptions,
 }: ReasoningLanesProps) {
-  const streamRefs = useRef<Record<LaneId, HTMLDivElement | null>>({
-    orchestrator: null,
-    'debater-a': null,
-    'debater-b': null,
-    'debater-c': null,
-  });
+  const streamRefs = useRef<Record<LaneId, HTMLDivElement | null>>({});
 
   const modelLabelByKey = useMemo(() => {
     return new Map(modelOptions.map((model) => [model.key, model.label]));
@@ -66,19 +55,25 @@ export default function ReasoningLanes({
   }, [personalityOptions]);
 
   useEffect(() => {
-    for (const lane of LANE_CONFIGS) {
+    for (const lane of laneConfigs) {
       const stream = streamRefs.current[lane.id];
       if (!stream) continue;
 
       stream.scrollLeft = stream.scrollWidth;
     }
-  }, [messages]);
+  }, [messages, laneConfigs]);
+
+  const colClass = laneConfigs.length <= 2
+    ? 'md:grid-cols-2'
+    : laneConfigs.length <= 4
+      ? 'md:grid-cols-2 xl:grid-cols-4'
+      : `md:grid-cols-3 xl:grid-cols-${Math.min(laneConfigs.length, 6)}`;
 
   return (
     <Card className="border-0 py-0 ring-0 bg-transparent shadow-none">
       <CardContent className="p-0">
-        <div className="grid grid-cols-1 gap-6 py-2 md:grid-cols-2 xl:grid-cols-4">
-          {LANE_CONFIGS.map((lane) => {
+        <div className={`grid grid-cols-1 gap-6 py-2 ${colClass}`}>
+          {laneConfigs.map((lane, index) => {
             const settings = laneSettings[lane.id];
             const laneMessages = messages.filter((m) => m.laneId === lane.id);
             const modelLabel = modelLabelByKey.get(settings.modelKey) ?? settings.modelKey;
@@ -92,7 +87,7 @@ export default function ReasoningLanes({
                 key={lane.id}
                 className="flex flex-col items-center px-4 py-3"
               >
-                <LaneAvatarIcon laneId={lane.id} active={isSpeaking} />
+                <LaneAvatarIcon laneId={lane.id} active={isSpeaking} index={index} />
 
                 <div className="mt-2 flex items-center gap-1.5" role="status" aria-label={isSpeaking ? 'Currently speaking' : 'Idle'}>
                   <span className="text-xs font-medium text-foreground truncate">{lane.label}</span>

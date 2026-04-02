@@ -13,12 +13,14 @@ import {
   DebateGraphEdge,
   DebateGraphNode,
   DebateStatus,
+  LaneConfig,
   LaneId,
   LaneSettings,
   ReasoningMessage,
 } from '@/types/ui';
 
 interface AppShellProps {
+  laneConfigs: LaneConfig[];
   laneSettings: Record<LaneId, LaneSettings>;
   onLaneSettingsChange: (laneId: LaneId, settings: LaneSettings) => void;
   onPersonalityGenerated: (personality: ApiPersonality) => void;
@@ -33,9 +35,14 @@ interface AppShellProps {
   onFinalize: () => void;
   onNewDebate: () => void;
   disableFinalize: boolean;
+  onAddAgent: () => void;
+  onRemoveAgent: (laneId: LaneId) => void;
+  canAddAgent: boolean;
+  canRemoveAgent: boolean;
 }
 
 export default function AppShell({
+  laneConfigs,
   laneSettings,
   onLaneSettingsChange,
   onPersonalityGenerated,
@@ -50,6 +57,10 @@ export default function AppShell({
   onFinalize,
   onNewDebate,
   disableFinalize,
+  onAddAgent,
+  onRemoveAgent,
+  canAddAgent,
+  canRemoveAgent,
 }: AppShellProps) {
   const [settingsExpanded, setSettingsExpanded] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -90,12 +101,17 @@ export default function AppShell({
               : 'pointer-events-auto h-auto'}
           >
             <SettingsPanel
+              laneConfigs={laneConfigs}
               laneSettings={laneSettings}
               onLaneSettingsChange={onLaneSettingsChange}
               modelOptions={modelOptions}
               personalityOptions={personalityOptions}
               isExpanded={settingsExpanded}
               onExpandedChange={setSettingsExpanded}
+              onAddAgent={onAddAgent}
+              onRemoveAgent={onRemoveAgent}
+              canAddAgent={canAddAgent}
+              canRemoveAgent={canRemoveAgent}
             />
           </div>
         </div>
@@ -105,6 +121,7 @@ export default function AppShell({
           {/* Reasoning Stream Card */}
           <div className="pointer-events-auto w-full max-w-5xl mb-2 px-4">
             <ReasoningLanes
+              laneConfigs={laneConfigs}
               messages={messages}
               laneSettings={laneSettings}
               modelOptions={modelOptions}

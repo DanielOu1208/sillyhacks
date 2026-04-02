@@ -1,4 +1,4 @@
-export type LaneId = "orchestrator" | "debater-a" | "debater-b" | "debater-c";
+export type LaneId = string;
 
 export interface LaneConfig {
   id: LaneId;
@@ -7,20 +7,30 @@ export interface LaneConfig {
   role: string;
 }
 
-export const LANE_CONFIGS: LaneConfig[] = [
-  { id: "orchestrator", label: "Orchestrator", avatar: "", role: "Moderator" },
-  { id: "debater-a", label: "Debater A", avatar: "", role: "Proponent" },
-  { id: "debater-b", label: "Debater B", avatar: "", role: "Opponent" },
-  { id: "debater-c", label: "Debater C", avatar: "", role: "Synthesizer" },
-];
+const DEBATER_ROLES = ["Proponent", "Opponent", "Synthesizer", "Analyst", "Advocate", "Mediator", "Challenger", "Explorer"];
 
-export const AGENT_LANES: LaneId[] = ["debater-a", "debater-b", "debater-c"];
+export function buildLaneConfigs(agentCount: number): LaneConfig[] {
+  const configs: LaneConfig[] = [
+    { id: "orchestrator", label: "Orchestrator", avatar: "", role: "Moderator" },
+  ];
+  for (let i = 0; i < agentCount; i++) {
+    const letter = String.fromCharCode(65 + i); // A, B, C, ...
+    configs.push({
+      id: `debater-${letter.toLowerCase()}`,
+      label: `Debater ${letter}`,
+      avatar: "",
+      role: DEBATER_ROLES[i % DEBATER_ROLES.length],
+    });
+  }
+  return configs;
+}
 
-export const LANE_ICON_NAMES: Record<LaneId, string> = {
+export function buildAgentLanes(agentCount: number): LaneId[] {
+  return Array.from({ length: agentCount }, (_, i) => `debater-${String.fromCharCode(97 + i)}`);
+}
+
+export const LANE_ICON_NAMES: Record<string, string> = {
   orchestrator: "sparkles",
-  "debater-a": "shield",
-  "debater-b": "user",
-  "debater-c": "bot",
 };
 
 export type DebateStatus = "idle" | "starting" | "running" | "completed" | "errored";

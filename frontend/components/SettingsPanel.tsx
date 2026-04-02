@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Settings2, Sparkles, Shield, User, Bot } from 'lucide-react';
+import { ChevronDown, ChevronUp, Settings2, Sparkles, Shield, User, Bot, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
 import {
@@ -21,35 +21,46 @@ import { Separator } from '@/components/ui/separator';
 import {
   ApiModel,
   ApiPersonality,
+  LaneConfig,
   LaneId,
   LaneSettings,
-  LANE_CONFIGS,
 } from '@/types/ui';
 
+const LANE_ICONS = [Shield, User, Bot, Sparkles, Shield, User, Bot, Sparkles];
+
+function getLaneIcon(lane: LaneConfig, index: number) {
+  if (lane.id === 'orchestrator') return <Sparkles className="size-4 text-muted-foreground" />;
+  const Icon = LANE_ICONS[index % LANE_ICONS.length];
+  return <Icon className="size-4 text-muted-foreground" />;
+}
+
 interface SettingsPanelProps {
+  laneConfigs: LaneConfig[];
   laneSettings: Record<LaneId, LaneSettings>;
   onLaneSettingsChange: (laneId: LaneId, settings: LaneSettings) => void;
   modelOptions: ApiModel[];
   personalityOptions: ApiPersonality[];
   isExpanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
+  onAddAgent: () => void;
+  onRemoveAgent: (laneId: LaneId) => void;
+  canAddAgent: boolean;
+  canRemoveAgent: boolean;
 }
 
 export default function SettingsPanel({
+  laneConfigs,
   laneSettings,
   onLaneSettingsChange,
   modelOptions,
   personalityOptions,
   isExpanded,
   onExpandedChange,
+  onAddAgent,
+  onRemoveAgent,
+  canAddAgent,
+  canRemoveAgent,
 }: SettingsPanelProps) {
-  const laneIcons: Record<LaneId, React.ReactNode> = {
-    orchestrator: <Sparkles className="size-4 text-muted-foreground" />,
-    'debater-a': <Shield className="size-4 text-muted-foreground" />,
-    'debater-b': <User className="size-4 text-muted-foreground" />,
-    'debater-c': <Bot className="size-4 text-muted-foreground" />,
-  };
-
   return (
     <Card className="bg-popover/95 backdrop-blur-sm flex w-60 min-h-0 flex-col border border-border shadow-xl">
       <Collapsible open={isExpanded} onOpenChange={onExpandedChange}>
@@ -71,10 +82,11 @@ export default function SettingsPanel({
           <CardContent className="flex min-h-0 flex-1 p-2">
             <ScrollArea className="h-full min-h-0 flex-1">
               <div className="flex flex-col gap-2">
-                {LANE_CONFIGS.map((lane) => {
+                {laneConfigs.map((lane, index) => {
                   const settings = laneSettings[lane.id];
                   const modelValue = settings?.modelKey ?? '';
                   const personalityValue = settings?.personalityId ?? '';
+                  const isDebater = lane.id !== 'orchestrator';
 
                   return (
                     <div
@@ -83,13 +95,24 @@ export default function SettingsPanel({
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <div className="flex items-center justify-center">
-                          {laneIcons[lane.id]}
+                          {getLaneIcon(lane, index)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-xs font-medium text-foreground truncate">
                             {lane.label}
                           </h3>
                         </div>
+                        {isDebater && canRemoveAgent && (
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="size-5 text-muted-foreground hover:text-destructive"
+                            onClick={() => onRemoveAgent(lane.id)}
+                            title="Remove agent"
+                          >
+                            <X className="size-3" />
+                          </Button>
+                        )}
                       </div>
 
                       {/* Model Select */}
@@ -152,6 +175,18 @@ export default function SettingsPanel({
                     </div>
                   );
                 })}
+
+                {canAddAgent && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs gap-1"
+                    onClick={onAddAgent}
+                  >
+                    <Plus className="size-3" />
+                    Add Agent
+                  </Button>
+                )}
               </div>
             </ScrollArea>
           </CardContent>

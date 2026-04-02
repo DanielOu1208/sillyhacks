@@ -22,7 +22,7 @@ type CreateDebateResponse = {
 };
 
 type ContinueAgentOverride = {
-  laneId: "debater-a" | "debater-b" | "debater-c";
+  laneId: string;
   modelKey: string;
   personalityJson: string;
 };

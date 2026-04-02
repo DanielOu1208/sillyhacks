@@ -14,32 +14,44 @@ import {
   startDebate,
 } from '@/lib/api';
 import {
-  AGENT_LANES,
+  buildAgentLanes,
+  buildLaneConfigs,
   ApiModel,
   ApiPersonality,
   DebateGraphNode,
   DebateStatus,
   LaneId,
   LaneSettings,
-  LANE_CONFIGS,
   ReasoningMessage,
 } from '@/types/ui';
 
 const FALLBACK_MODEL_KEY = 'gemini:gemini-2.5-flash-lite';
 
-const INITIAL_LANE_SETTINGS: Record<LaneId, LaneSettings> = {
-  orchestrator: { modelKey: '', personalityId: '' },
-  'debater-a': { modelKey: '', personalityId: '' },
-  'debater-b': { modelKey: '', personalityId: '' },
-  'debater-c': { modelKey: '', personalityId: '' },
-};
+const DEFAULT_AGENT_COUNT = 3;
+const MIN_AGENT_COUNT = 1;
+const MAX_AGENT_COUNT = 5;
 
-const PREFERRED_PERSONALITY_NAMES: Record<LaneId, string[]> = {
-  orchestrator: ['Synthesizer', 'Strategist'],
-  'debater-a': ['Strategist', 'Skeptic'],
-  'debater-b': ['Contrarian', 'Skeptic'],
-  'debater-c': ['Optimist', 'Synthesizer'],
-};
+function buildInitialLaneSettings(agentCount: number): Record<LaneId, LaneSettings> {
+  const settings: Record<LaneId, LaneSettings> = {
+    orchestrator: { modelKey: '', personalityId: '' },
+  };
+  for (const laneId of buildAgentLanes(agentCount)) {
+    settings[laneId] = { modelKey: '', personalityId: '' };
+  }
+  return settings;
+}
+
+const PERSONALITY_ROTATION = ['Strategist', 'Contrarian', 'Optimist', 'Skeptic', 'Synthesizer', 'Domain Expert'];
+
+function getPreferredPersonalityNames(laneId: LaneId): string[] {
+  if (laneId === 'orchestrator') return ['Synthesizer', 'Strategist'];
+  // Extract debater index from lane id (e.g. 'debater-a' -> 0, 'debater-b' -> 1)
+  const letter = laneId.split('-')[1];
+  const index = letter ? letter.charCodeAt(0) - 97 : 0;
+  const primary = PERSONALITY_ROTATION[index % PERSONALITY_ROTATION.length];
+  const secondary = PERSONALITY_ROTATION[(index + 1) % PERSONALITY_ROTATION.length];
+  return [primary, secondary];
+}
 
 type CreateEventPayload = {
   nodeId: string;
@@ -97,7 +109,7 @@ function findPersonalityIdForLane(
   laneId: LaneId,
   personalities: ApiPersonality[],
 ): string {
-  const preferredNames = PREFERRED_PERSONALITY_NAMES[laneId];
+  const preferredNames = getPreferredPersonalityNames(laneId);
   const byName = preferredNames
     .map((name) => personalities.find((personality) => personality.name === name)?.id)
     .find(Boolean);
@@ -110,15 +122,18 @@ function deriveTitle(goal: string): string {
   return `${normalized.slice(0, 67)}...`;
 }
 
-type ContinueLaneId = 'debater-a' | 'debater-b' | 'debater-c';
-
 export default function Home() {
+  const [agentCount, setAgentCount] = useState(DEFAULT_AGENT_COUNT);
   const [status, setStatus] = useState<DebateStatus>('idle');
   const [debateId, setDebateId] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<ApiModel[]>([]);
   const [personalityOptions, setPersonalityOptions] = useState<ApiPersonality[]>([]);
   const [laneSettings, setLaneSettings] =
-    useState<Record<LaneId, LaneSettings>>(INITIAL_LANE_SETTINGS);
+    useState<Record<LaneId, LaneSettings>>(() => buildInitialLaneSettings(DEFAULT_AGENT_COUNT));
+
+  const laneConfigs = useMemo(() => buildLaneConfigs(agentCount), [agentCount]);
+  const agentLanes = useMemo(() => buildAgentLanes(agentCount), [agentCount]);
+
   const [graphNodes, setGraphNodes] = useState<DebateGraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<
     Array<{
@@ -151,7 +166,7 @@ export default function Home() {
       personalityOptions.map((personality) => [personality.id, personality]),
     );
 
-    return AGENT_LANES.flatMap((laneId) => {
+    return agentLanes.flatMap((laneId) => {
       const laneState = laneSettings[laneId];
       if (!laneState?.modelKey || !laneState?.personalityId) {
         return [];
@@ -163,12 +178,12 @@ export default function Home() {
       }
 
       return [{
-        laneId: laneId as ContinueLaneId,
+        laneId,
         modelKey: laneState.modelKey,
         personalityJson: JSON.stringify(personality.personality),
       }];
     });
-  }, [laneSettings, personalityOptions]);
+  }, [agentLanes, laneSettings, personalityOptions]);
 
   const resolveLaneForNode = useCallback(
     (node: DebateGraphNode): LaneId => {
@@ -211,7 +226,7 @@ export default function Home() {
 
     setLaneSettings((prev) => {
       const next = { ...prev };
-      for (const lane of LANE_CONFIGS) {
+      for (const lane of laneConfigs) {
         const previous = next[lane.id] ?? { modelKey: '', personalityId: '' };
         const modelKey = previous.modelKey || modelFallback;
         const personalityId =
@@ -222,7 +237,7 @@ export default function Home() {
     });
 
     return { models, personalities };
-  }, []);
+  }, [laneConfigs]);
 
   const openSse = useCallback(
     (targetDebateId: string) => {
@@ -352,15 +367,15 @@ export default function Home() {
 
       const modelFallback = models[0]?.key ?? FALLBACK_MODEL_KEY;
 
-      const laneAgentInputs = AGENT_LANES.map((laneId, index) => {
-        const laneConfig = LANE_CONFIGS.find((lane) => lane.id === laneId);
+      const laneAgentInputs = agentLanes.map((laneId, index) => {
+        const laneConfig = laneConfigs.find((lane) => lane.id === laneId);
         const laneState = laneSettings[laneId];
         const modelKey =
-          laneState.modelKey ||
+          laneState?.modelKey ||
           models[index % models.length]?.key ||
           modelFallback;
         const personalityId =
-          laneState.personalityId || findPersonalityIdForLane(laneId, personalities);
+          laneState?.personalityId || findPersonalityIdForLane(laneId, personalities);
         const personality = personalityById.get(personalityId) ?? personalities[0];
 
         return {
@@ -395,7 +410,9 @@ export default function Home() {
       setStatus('running');
     },
     [
+      agentLanes,
       hydrateOptions,
+      laneConfigs,
       laneSettings,
       modelOptions,
       openSse,
@@ -436,6 +453,40 @@ export default function Home() {
       ...prev,
       [laneId]: settings,
     }));
+  }, []);
+
+  const handleAddAgent = useCallback(() => {
+    setAgentCount((prev) => {
+      const next = Math.min(prev + 1, MAX_AGENT_COUNT);
+      const newLaneId = `debater-${String.fromCharCode(97 + prev)}`;
+      setLaneSettings((prevSettings) => ({
+        ...prevSettings,
+        [newLaneId]: { modelKey: modelOptions[0]?.key ?? '', personalityId: personalityOptions[0]?.id ?? '' },
+      }));
+      return next;
+    });
+  }, [modelOptions, personalityOptions]);
+
+  const handleRemoveAgent = useCallback((laneId: LaneId) => {
+    setAgentCount((prev) => {
+      if (prev <= MIN_AGENT_COUNT) return prev;
+      const next = prev - 1;
+      // Rebuild lane settings without the removed lane, re-keying remaining debaters
+      const newAgentLanes = buildAgentLanes(next);
+      setLaneSettings((prevSettings) => {
+        const oldDebaterLanes = buildAgentLanes(prev);
+        const remaining = oldDebaterLanes.filter((id) => id !== laneId);
+        const newSettings: Record<LaneId, LaneSettings> = {
+          orchestrator: prevSettings.orchestrator ?? { modelKey: '', personalityId: '' },
+        };
+        remaining.forEach((oldId, i) => {
+          const newId = newAgentLanes[i];
+          newSettings[newId] = prevSettings[oldId] ?? { modelKey: '', personalityId: '' };
+        });
+        return newSettings;
+      });
+      return next;
+    });
   }, []);
 
   const handleSendMessage = useCallback(
@@ -504,6 +555,7 @@ export default function Home() {
 
   return (
     <AppShell
+      laneConfigs={laneConfigs}
       laneSettings={laneSettings}
       onLaneSettingsChange={handleLaneSettingsChange}
       onPersonalityGenerated={handlePersonalityGenerated}
@@ -518,6 +570,10 @@ export default function Home() {
       onFinalize={handleFinalize}
       onNewDebate={handleNewDebate}
       disableFinalize={!debateId || status !== 'running'}
+      onAddAgent={handleAddAgent}
+      onRemoveAgent={handleRemoveAgent}
+      canAddAgent={agentCount < MAX_AGENT_COUNT}
+      canRemoveAgent={agentCount > MIN_AGENT_COUNT}
     />
   );
 }
